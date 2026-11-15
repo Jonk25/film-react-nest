@@ -14,7 +14,8 @@ export class ScheduleDto {
 
 /**
  * DTO фильма.
- * Соответствует схеме Film из film.yml.
+ * Соответствует схеме Film из film.yml,
+ * дополнительно содержит расписание сеансов (как в MongoDB-документе).
  */
 export class FilmDto {
   id: string;
@@ -26,4 +27,5 @@ export class FilmDto {
   description: string;
   image: string;
   cover: string;
+  schedule: ScheduleDto[];
 }

@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { FilmsRepository } from '../repository/films.repository';
-import { FilmDocument } from '../repository/films.schema';
+import { Film } from '../entity/film.entity';
 import { CreateOrderDto, OrderResultDto, TicketDto } from './dto/order.dto';
 import { ListResponse } from '../common/dto/list-response.dto';
 
@@ -23,8 +23,8 @@ export class OrderService {
       throw new BadRequestException('Список билетов пуст');
     }
 
-    // Документы фильмов, затронутых заказом: filmId -> документ mongoose
-    const films = new Map<string, FilmDocument>();
+    // Сущности фильмов, затронутых заказом: filmId -> сущность TypeORM
+    const films = new Map<string, Film>();
     // Места, забронированные в рамках этого же запроса: filmId:sessionId -> Set
     const bookedInRequest = new Map<string, Set<string>>();
 
@@ -86,14 +86,14 @@ export class OrderService {
     return { total: items.length, items };
   }
 
-  /** Загружает документ фильма (один раз на заказ) и кэширует его в Map */
+  /** Загружает сущность фильма (один раз на заказ) и кэширует её в Map */
   private async getFilm(
     ticket: TicketDto,
-    films: Map<string, FilmDocument>,
-  ): Promise<FilmDocument> {
+    films: Map<string, Film>,
+  ): Promise<Film> {
     let film = films.get(ticket.film);
     if (!film) {
-      film = await this.filmsRepository.findFilmDocument(ticket.film);
+      film = await this.filmsRepository.findById(ticket.film);
       if (!film) {
         throw new NotFoundException(`Фильм с id ${ticket.film} не найден`);
       }

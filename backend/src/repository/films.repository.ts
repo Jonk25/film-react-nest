@@ -1,27 +1,28 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Film, FilmDocument, Schedule } from './films.schema';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Film } from '../entity/film.entity';
+import { Schedule } from '../entity/schedule.entity';
 import { FilmDto, ScheduleDto } from '../films/dto/films.dto';
 
 /**
- * Репозиторий фильмов в MongoDB.
- * Инкапсулирует работу с mongoose и конвертацию сущностей в DTO.
+ * Репозиторий фильмов в PostgreSQL (TypeORM).
+ * Инкапсулирует работу с БД и конвертацию сущностей в DTO.
  */
 @Injectable()
 export class FilmsRepository {
   constructor(
-    @InjectModel(Film.name) private readonly filmModel: Model<FilmDocument>,
+    @InjectRepository(Film)
+    private readonly filmRepository: Repository<Film>,
+    @InjectRepository(Schedule)
+    private readonly scheduleRepository: Repository<Schedule>,
   ) {}
 
-  /** Конвертер: mongoose-документ сеанса → ScheduleDto */
+  /** Конвертер: сущность сеанса → ScheduleDto */
   private toScheduleDto(schedule: Schedule): ScheduleDto {
     return {
       id: schedule.id,
-      daytime:
-        schedule.daytime instanceof Date
-          ? schedule.daytime.toISOString()
-          : String(schedule.daytime),
+      daytime: schedule.daytime,
       hall: schedule.hall,
       rows: schedule.rows,
       seats: schedule.seats,
@@ -30,8 +31,8 @@ export class FilmsRepository {
     };
   }
 
-  /** Конвертер: mongoose-документ фильма → FilmDto */
-  private toFilmDto(film: FilmDocument): FilmDto {
+  /** Конвертер: сущность фильма → FilmDto */
+  private toFilmDto(film: Film): FilmDto {
     return {
       id: film.id,
       rating: film.rating,
@@ -42,32 +43,43 @@ export class FilmsRepository {
       description: film.description,
       image: film.image,
       cover: film.cover,
+      schedule: (film.schedule ?? []).map((session) =>
+        this.toScheduleDto(session),
+      ),
     };
   }
 
-  /** Все фильмы (без расписания) */
+  /** Все фильмы вместе с расписанием сеансов */
   async findAll(): Promise<FilmDto[]> {
-    const films = await this.filmModel.find().exec();
+    const films = await this.filmRepository.find({
+      relations: { schedule: true },
+    });
     return films.map((film) => this.toFilmDto(film));
   }
 
   /** Расписание одного фильма по его id */
   async findScheduleByFilmId(id: string): Promise<ScheduleDto[] | null> {
-    const film = await this.filmModel.findOne({ id }).exec();
+    const film = await this.findById(id);
     if (!film) return null;
     return film.schedule.map((session) => this.toScheduleDto(session));
   }
 
   /**
-   * Сырой документ фильма — нужен сервису заказов
+   * Сущность фильма вместе с расписанием — нужна сервису заказов
    * для проверки и обновления занятых мест.
    */
-  async findFilmDocument(id: string): Promise<FilmDocument | null> {
-    return this.filmModel.findOne({ id }).exec();
+  async findById(id: string): Promise<Film | null> {
+    return this.filmRepository.findOne({
+      where: { id },
+      relations: { schedule: true },
+    });
   }
 
-  /** Сохранить изменения документа (например, обновлённый список занятых мест) */
-  async save(film: FilmDocument): Promise<void> {
-    await film.save();
+  /**
+   * Сохранить изменения сеансов фильма
+   * (например, обновлённый список занятых мест).
+   */
+  async save(film: Film): Promise<void> {
+    await this.scheduleRepository.save(film.schedule);
   }
 }

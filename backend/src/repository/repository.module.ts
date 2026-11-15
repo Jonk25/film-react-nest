@@ -1,16 +1,13 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { Film, FilmSchema } from './films.schema';
+import { DatabaseModule } from '../database/database.module';
 import { FilmsRepository } from './films.repository';
 
 /**
- * Модуль хранилища: регистрирует mongoose-схему фильма
- * и предоставляет репозиторий остальным модулям.
+ * Модуль хранилища: предоставляет репозиторий фильмов остальным модулям.
+ * Репозитории TypeORM (Film, Schedule) подключены через DatabaseModule.
  */
 @Module({
-  imports: [
-    MongooseModule.forFeature([{ name: Film.name, schema: FilmSchema }]),
-  ],
+  imports: [DatabaseModule],
   providers: [FilmsRepository],
   exports: [FilmsRepository],
 })
