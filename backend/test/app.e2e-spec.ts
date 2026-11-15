@@ -3,7 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from './../src/app.module';
 
-describe('AppController (e2e)', () => {
+describe('App (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
@@ -15,10 +15,17 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('/films/ (GET) — список фильмов', () => {
     return request(app.getHttpServer())
-      .get('/')
+      .get('/films/')
       .expect(200)
-      .expect('Hello World!');
+      .expect((res) => {
+        expect(Array.isArray(res.body.items)).toBe(true);
+        expect(res.body.total).toBe(res.body.items.length);
+      });
   });
 });
